@@ -18,7 +18,7 @@ NC='\033[0m'
 
 # ----- 全局变量 -----
 SCRIPT_VERSION="2.3"
-SCRIPT_REMOTE_URL="https://cang.zixi.run/claude.sh"
+SCRIPT_REMOTE_URL="https://c.zixi.run/claude.sh"
 CC_BIN_DIR="$HOME/.local/bin"
 CC_BIN_PATH="$CC_BIN_DIR/cc"
 
