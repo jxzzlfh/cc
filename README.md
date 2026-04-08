@@ -3,7 +3,7 @@
 交互式菜单工具，用于安装、配置、更新和卸载 [Claude Code](https://code.claude.com)。  
 参考官方文档: [快速开始](https://code.claude.com/docs/zh-CN/quickstart) | [高级设置](https://code.claude.com/docs/zh-CN/setup)
 
-<img width="578" height="674" alt="image" src="https://github.com/user-attachments/assets/1385d2fb-8f9c-4912-b81b-ae219cb67bc9" />
+<img width="590" height="669" alt="image" src="https://github.com/user-attachments/assets/5d41f5ee-008b-444f-b194-8340f5bda508" />
 
 ## 功能一览
 
