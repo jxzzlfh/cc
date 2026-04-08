@@ -17,13 +17,15 @@
 | **查看当前配置** | 直接查看 `settings.json` 和验证标识文件内容 |
 | **npm 迁移原生** | 将已弃用的 npm 安装方式一键迁移到官方原生安装 |
 | **运行诊断** | 执行 `claude doctor` 进行环境自检 |
+| **设置快捷命令** | 安装 `cc` 命令到 `~/.local/bin/`，之后任意终端输入 `cc` 即可启动面板 |
 
 ## 特性
 
 * **跨平台** — Linux (Ubuntu/CentOS/Debian/Alpine/Arch)、macOS、Windows (Git Bash)
 * **交互式菜单** — 进入脚本即显示菜单首页，实时展示环境状态
 * **智能检测** — 自动识别安装方式（原生/npm/Homebrew/WinGet），更新和卸载自动匹配
-* **彻底卸载** — 删除程序本体 + 可选清理 `~/.claude/`、`~/.claude.json`、项目级 `.claude/`、`.mcp.json`
+* **彻底卸载** — 删除程序本体 + 可选清理 `~/.claude/`、`~/.claude.json`、`cc` 快捷命令、项目级 `.claude/`、`.mcp.json`
+* **快捷命令** — 一键安装 `cc` 到 `~/.local/bin/`，下次直接 `cc` 启动面板，支持更新/卸载
 * **多安装方式** — 原生安装（推荐，自动更新）、npm、Homebrew、WinGet 任选
 * **免密绕过** — 自动生成 `settings.json` 并写入 onboarding 标识，跳过官方账号验证
 * **配置纯净** — 所有配置写入 Claude 专属文件，不污染全局环境变量
@@ -50,6 +52,16 @@ bash <(wget -qO- https://cang.zixi.run/claude.sh)
 
 运行后自动进入交互式菜单，按数字键选择功能。
 
+### 设置快捷命令（推荐）
+
+首次运行脚本后，选择菜单中的 **9) 设置快捷命令**，脚本会将自身安装到 `~/.local/bin/cc`。之后在任意终端直接输入：
+
+```bash
+cc
+```
+
+即可随时启动本面板，无需再记远程地址。
+
 ## 配置说明
 
 选择「一键配置」后，按提示输入：
@@ -75,6 +87,7 @@ bash <(wget -qO- https://cang.zixi.run/claude.sh)
 3. 可选清理所有残留文件：
    - `~/.claude/` — 用户设置、MCP 配置、会话历史
    - `~/.claude.json` — onboarding 标识
+   - `~/.local/bin/cc` — 快捷命令
    - `.claude/` — 当前项目的项目级配置
    - `.mcp.json` — 当前项目的 MCP 配置
 

@@ -17,6 +17,11 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ----- 全局变量 -----
+SCRIPT_VERSION="2.1"
+SCRIPT_REMOTE_URL="https://cang.zixi.run/claude.sh"
+CC_BIN_DIR="$HOME/.local/bin"
+CC_BIN_PATH="$CC_BIN_DIR/cc"
+
 OS="$(uname -s)"
 IS_WINDOWS=false
 IS_MAC=false
@@ -29,7 +34,7 @@ print_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════╗"
     echo "║                                                          ║"
-    echo "║          Claude Code 一键安装配置工具  v2.0              ║"
+    echo "║          Claude Code 一键安装配置工具  v${SCRIPT_VERSION}              ║"
     echo "║          https://code.claude.com                         ║"
     echo "║                                                          ║"
     echo "╚══════════════════════════════════════════════════════════╝"
@@ -185,6 +190,13 @@ show_status() {
         echo -e "  验证跳过:  ${GREEN}已设置${NC}"
     else
         echo -e "  验证跳过:  ${YELLOW}未设置${NC}"
+    fi
+
+    # cc 快捷命令
+    if [ -f "$CC_BIN_PATH" ] && [ -x "$CC_BIN_PATH" ]; then
+        echo -e "  快捷命令:  ${GREEN}已安装${NC} (终端输入 ${BOLD}cc${NC} 启动本面板)"
+    else
+        echo -e "  快捷命令:  ${YELLOW}未安装${NC} (菜单 9 可设置)"
     fi
 
     print_sep
@@ -569,6 +581,12 @@ clean_config_files() {
         msg_ok "已删除 ~/.claude.json"
     fi
 
+    # cc 快捷命令
+    if [ -f "$CC_BIN_PATH" ]; then
+        rm -f "$CC_BIN_PATH"
+        msg_ok "已删除快捷命令 cc"
+    fi
+
     # 项目级配置 (当前目录)
     if [ -d ".claude" ]; then
         input_param "检测到当前目录下的 .claude/ 项目配置，是否一并删除？(y/N): " del_proj
@@ -674,6 +692,117 @@ menu_doctor() {
     press_enter
 }
 
+# ----- 9. 设置快捷命令 cc -----
+menu_setup_alias() {
+    clear
+    print_banner
+    msg_step "设置快捷命令 cc"
+    print_sep
+
+    if [ -f "$CC_BIN_PATH" ] && [ -x "$CC_BIN_PATH" ]; then
+        msg_ok "快捷命令已安装: $CC_BIN_PATH"
+        echo ""
+        echo -e "  ${BOLD}选择操作:${NC}"
+        echo -e "  ${CYAN}1)${NC} 更新脚本到最新版"
+        echo -e "  ${CYAN}2)${NC} 卸载快捷命令"
+        echo -e "  ${CYAN}0)${NC} 返回"
+        echo ""
+        input_param "请输入选项: " alias_action
+        case "$alias_action" in
+            1) install_cc_command ;;
+            2) uninstall_cc_command ;;
+            0) return ;;
+            *) msg_error "无效选项。" ;;
+        esac
+    else
+        msg_info "将脚本安装为快捷命令，之后在任意终端输入 ${BOLD}cc${NC} 即可启动本面板。"
+        echo ""
+        echo -e "  安装位置: ${CYAN}$CC_BIN_PATH${NC}"
+        echo ""
+        input_param "确认安装？(Y/n): " confirm
+        confirm=${confirm:-Y}
+        if [[ "$confirm" == "n" || "$confirm" == "N" ]]; then
+            msg_info "已取消。"
+            press_enter
+            return
+        fi
+        install_cc_command
+    fi
+
+    press_enter
+}
+
+install_cc_command() {
+    mkdir -p "$CC_BIN_DIR"
+
+    # 优先从远程下载最新版，失败则用当前运行中的脚本
+    msg_info "下载最新脚本..."
+    if curl -fsSL "$SCRIPT_REMOTE_URL" -o "$CC_BIN_PATH.tmp" 2>/dev/null; then
+        mv "$CC_BIN_PATH.tmp" "$CC_BIN_PATH"
+        msg_ok "已从远程下载最新版本。"
+    elif [ -f "$0" ] && [ -s "$0" ]; then
+        cp "$0" "$CC_BIN_PATH"
+        msg_ok "已复制当前脚本。"
+    else
+        # 管道执行时 $0 不可靠，尝试用 /proc/self
+        if [ -f "/proc/$$/fd/0" ]; then
+            msg_warn "管道模式，使用当前缓存..."
+        fi
+        msg_error "无法获取脚本文件，请手动下载后放置到 $CC_BIN_PATH"
+        rm -f "$CC_BIN_PATH.tmp"
+        return
+    fi
+
+    chmod +x "$CC_BIN_PATH"
+
+    ensure_path_in_rc
+    msg_ok "快捷命令安装完成！"
+    echo ""
+    echo -e "  ${GREEN}${BOLD}现在新开终端后，输入 cc 即可启动本面板。${NC}"
+    echo -e "  如需当前终端立即生效，请执行: ${YELLOW}export PATH=\"$CC_BIN_DIR:\$PATH\"${NC}"
+}
+
+uninstall_cc_command() {
+    rm -f "$CC_BIN_PATH"
+    msg_ok "快捷命令已卸载。"
+    msg_info "如需清理 PATH 配置，请手动编辑 shell 配置文件移除相关行。"
+}
+
+ensure_path_in_rc() {
+    # 检查 ~/.local/bin 是否已在 PATH 中
+    if echo "$PATH" | tr ':' '\n' | grep -qx "$CC_BIN_DIR"; then
+        return
+    fi
+
+    local path_line='export PATH="$HOME/.local/bin:$PATH"'
+    local rc_files=()
+
+    # 收集存在的 shell rc 文件
+    [ -f "$HOME/.bashrc" ]       && rc_files+=("$HOME/.bashrc")
+    [ -f "$HOME/.bash_profile" ] && rc_files+=("$HOME/.bash_profile")
+    [ -f "$HOME/.zshrc" ]        && rc_files+=("$HOME/.zshrc")
+    [ -f "$HOME/.profile" ]      && rc_files+=("$HOME/.profile")
+
+    # 如果没有任何 rc 文件，创建 .bashrc
+    if [ ${#rc_files[@]} -eq 0 ]; then
+        rc_files+=("$HOME/.bashrc")
+        touch "$HOME/.bashrc"
+    fi
+
+    local patched=false
+    for rc_file in "${rc_files[@]}"; do
+        if ! grep -qF '.local/bin' "$rc_file" 2>/dev/null; then
+            printf '\n# Claude Code 快捷命令 cc\n%s\n' "$path_line" >> "$rc_file"
+            msg_ok "已写入 PATH 到 $(basename "$rc_file")"
+            patched=true
+        fi
+    done
+
+    if [ "$patched" = false ]; then
+        msg_ok "PATH 已包含 ~/.local/bin，无需修改。"
+    fi
+}
+
 # ============================================================
 #  主菜单
 # ============================================================
@@ -694,11 +823,12 @@ main_menu() {
         echo -e "  ${CYAN}6)${NC}  查看当前配置    - 查看 settings.json 内容"
         echo -e "  ${CYAN}7)${NC}  npm 迁移原生    - 从已弃用的 npm 迁移到原生安装"
         echo -e "  ${CYAN}8)${NC}  运行诊断        - 执行 claude doctor 自检"
+        echo -e "  ${CYAN}9)${NC}  设置快捷命令    - 安装 ${BOLD}cc${NC} 命令，随时启动本面板"
         echo ""
         echo -e "  ${CYAN}0)${NC}  退出"
         echo ""
 
-        input_param "请输入选项 [0-8]: " choice
+        input_param "请输入选项 [0-9]: " choice
 
         case "$choice" in
             1) menu_install_env ;;
@@ -709,6 +839,7 @@ main_menu() {
             6) menu_show_config ;;
             7) menu_migrate_npm ;;
             8) menu_doctor ;;
+            9) menu_setup_alias ;;
             0) echo -e "\n${GREEN}再见！${NC}\n"; exit 0 ;;
             *) msg_error "无效选项，请重新输入。"; sleep 1 ;;
         esac
