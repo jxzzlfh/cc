@@ -17,7 +17,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ----- 全局变量 -----
-SCRIPT_VERSION="2.2"
+SCRIPT_VERSION="2.3"
 SCRIPT_REMOTE_URL="https://cang.zixi.run/claude.sh"
 CC_BIN_DIR="$HOME/.local/bin"
 CC_BIN_PATH="$CC_BIN_DIR/cc"
@@ -66,10 +66,15 @@ press_enter() {
 
 # ----- 网络检测 -----
 check_claude_ai_access() {
-    # 尝试访问 claude.ai 安装脚本地址，5 秒超时
-    local http_code
-    http_code=$(curl -sL -m 5 -o /dev/null -w "%{http_code}" https://claude.ai/install.sh 2>/dev/null)
-    if [[ "$http_code" =~ ^(200|301|302|303|307|308)$ ]]; then
+    # 下载前 256 字节，验证是否为真正的 shell 脚本
+    # claude.ai 在受限地区会返回 200 + HTML（"App unavailable in region"）
+    local head_content
+    head_content=$(curl -sL -m 8 -r 0-255 https://claude.ai/install.sh 2>/dev/null)
+    if [ -z "$head_content" ]; then
+        return 1
+    fi
+    # HTML 页面以 < 开头（如 <!DOCTYPE 或 <html）；shell 脚本以 #! 开头
+    if echo "$head_content" | head -c 2 | grep -q '^#!'; then
         return 0
     else
         return 1
@@ -294,7 +299,21 @@ do_install_native() {
         msg_info "或在 CMD 中运行:"
         echo -e "  ${YELLOW}curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd${NC}"
     else
-        curl -fsSL https://claude.ai/install.sh | bash
+        local tmp_script
+        tmp_script=$(mktemp /tmp/claude-install-XXXXXX.sh)
+        if ! curl -fsSL -m 30 https://claude.ai/install.sh -o "$tmp_script" 2>/dev/null; then
+            rm -f "$tmp_script"
+            msg_error "下载安装脚本失败，请检查网络连接。"
+            return 1
+        fi
+        if ! head -c 2 "$tmp_script" | grep -q '^#!'; then
+            rm -f "$tmp_script"
+            msg_error "下载内容不是有效的安装脚本（可能返回了 HTML 拦截页面）。"
+            msg_info "您的网络可能无法直接访问 claude.ai，请改用 npm 安装方式。"
+            return 1
+        fi
+        bash "$tmp_script"
+        rm -f "$tmp_script"
         msg_ok "Claude Code 原生安装完成！"
     fi
 }
@@ -730,6 +749,18 @@ menu_migrate_npm() {
     msg_info "当前为 npm 安装方式，官方已弃用 npm 安装。"
     msg_info "原生安装更快，无需额外依赖，且支持后台自动更新。"
     echo ""
+
+    msg_info "正在检测 claude.ai 网络可达性..."
+    if ! check_claude_ai_access; then
+        msg_error "无法访问 claude.ai（返回了拦截页面或连接超时）。"
+        msg_info "原生安装需要从 claude.ai 下载，当前网络环境无法完成迁移。"
+        msg_info "建议继续使用 npm 安装方式，或配置代理后重试。"
+        press_enter
+        return
+    fi
+    msg_ok "claude.ai 连接正常"
+    echo ""
+
     input_param "确认迁移到原生安装？(y/N): " confirm
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
         msg_info "已取消。"
@@ -742,8 +773,11 @@ menu_migrate_npm() {
         msg_info "请在 PowerShell 中执行: irm https://claude.ai/install.ps1 | iex"
         msg_info "然后手动执行: npm uninstall -g @anthropic-ai/claude-code"
     else
-        curl -fsSL https://claude.ai/install.sh | bash
-        msg_ok "原生安装完成。"
+        if ! do_install_native; then
+            msg_error "原生安装失败，npm 版本保持不变。"
+            press_enter
+            return
+        fi
 
         msg_info "步骤 2/2: 卸载 npm 版本..."
         npm uninstall -g @anthropic-ai/claude-code
