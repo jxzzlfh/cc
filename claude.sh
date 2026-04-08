@@ -17,7 +17,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # ----- 全局变量 -----
-SCRIPT_VERSION="2.1"
+SCRIPT_VERSION="2.2"
 SCRIPT_REMOTE_URL="https://cang.zixi.run/claude.sh"
 CC_BIN_DIR="$HOME/.local/bin"
 CC_BIN_PATH="$CC_BIN_DIR/cc"
@@ -62,6 +62,18 @@ input_param() {
 press_enter() {
     echo ""
     read -p "按 Enter 键返回主菜单..." < /dev/tty
+}
+
+# ----- 网络检测 -----
+check_claude_ai_access() {
+    # 尝试访问 claude.ai 安装脚本地址，5 秒超时
+    local http_code
+    http_code=$(curl -sL -m 5 -o /dev/null -w "%{http_code}" https://claude.ai/install.sh 2>/dev/null)
+    if [[ "$http_code" =~ ^(200|301|302|303|307|308)$ ]]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # ----- 环境检测 -----
@@ -274,6 +286,57 @@ menu_install_env() {
 }
 
 # ----- 2. 一键安装 Claude Code -----
+do_install_native() {
+    msg_info "使用原生安装方式..."
+    if [ "$IS_WINDOWS" = true ]; then
+        msg_info "请在 PowerShell 中运行以下命令完成原生安装:"
+        echo -e "  ${YELLOW}irm https://claude.ai/install.ps1 | iex${NC}"
+        msg_info "或在 CMD 中运行:"
+        echo -e "  ${YELLOW}curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd${NC}"
+    else
+        curl -fsSL https://claude.ai/install.sh | bash
+        msg_ok "Claude Code 原生安装完成！"
+    fi
+}
+
+do_install_homebrew() {
+    if ! command -v brew &> /dev/null; then
+        msg_error "未检测到 Homebrew，请先安装 Homebrew: https://brew.sh"
+        return 1
+    fi
+    msg_info "使用 Homebrew 安装..."
+    brew install --cask claude-code
+    msg_ok "Claude Code Homebrew 安装完成！"
+    msg_info "提示: Homebrew 不会自动更新，请定期运行 brew upgrade claude-code"
+}
+
+do_install_winget() {
+    if ! command -v winget &> /dev/null; then
+        msg_error "未检测到 WinGet，请通过 Microsoft Store 安装 App Installer。"
+        return 1
+    fi
+    msg_info "使用 WinGet 安装..."
+    winget install Anthropic.ClaudeCode
+    msg_ok "Claude Code WinGet 安装完成！"
+    msg_info "提示: WinGet 不会自动更新，请定期运行 winget upgrade Anthropic.ClaudeCode"
+}
+
+do_install_npm() {
+    if ! command -v node &> /dev/null; then
+        msg_error "未检测到 Node.js，请先执行「安装环境依赖」(菜单 1)。"
+        return 1
+    fi
+    local node_major
+    node_major=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1)
+    if [ -n "$node_major" ] && [ "$node_major" -lt 18 ] 2>/dev/null; then
+        msg_error "Node.js 版本过低 (需 18+)，当前: $(node -v)。请先升级 Node.js。"
+        return 1
+    fi
+    msg_info "使用 npm 全局安装..."
+    npm install -g @anthropic-ai/claude-code
+    msg_ok "Claude Code npm 安装完成！"
+}
+
 menu_install() {
     clear
     print_banner
@@ -290,54 +353,75 @@ menu_install() {
         fi
     fi
 
+    # 检测 claude.ai 网络可达性
+    msg_info "正在检测 claude.ai 网络可达性..."
+    local can_access=true
+    if check_claude_ai_access; then
+        msg_ok "claude.ai 连接正常"
+    else
+        can_access=false
+        echo ""
+        msg_warn "无法访问 claude.ai"
+        msg_info "原生安装、Homebrew、WinGet 均需要从 claude.ai 下载，可能无法正常使用"
+        msg_info "建议使用 npm 安装（从 npm 源下载，无需访问 claude.ai）"
+    fi
+
+    # 确定 npm 选项的编号（macOS/Windows 有 Homebrew/WinGet，npm 排第 3；Linux 排第 2）
+    local npm_num=2
+    if [ "$IS_MAC" = true ] || [ "$IS_WINDOWS" = true ]; then
+        npm_num=3
+    fi
+    local default_choice=1
+    if [ "$can_access" = false ]; then
+        default_choice=$npm_num
+    fi
+
     echo ""
     echo -e "  ${BOLD}请选择安装方式:${NC}"
     echo ""
-    echo -e "  ${CYAN}1)${NC} 原生安装 (推荐，自动更新)"
-    echo -e "  ${CYAN}2)${NC} npm 全局安装 (已弃用，需 Node.js 18+)"
-    if [ "$IS_MAC" = true ]; then
-        echo -e "  ${CYAN}3)${NC} Homebrew 安装"
-    fi
-    if [ "$IS_WINDOWS" = true ]; then
-        echo -e "  ${CYAN}3)${NC} WinGet 安装"
+
+    if [ "$can_access" = true ]; then
+        echo -e "  ${CYAN}1)${NC} 原生安装 ${GREEN}(推荐，自动更新)${NC}"
+        if [ "$IS_MAC" = true ]; then
+            echo -e "  ${CYAN}2)${NC} Homebrew 安装"
+        fi
+        if [ "$IS_WINDOWS" = true ]; then
+            echo -e "  ${CYAN}2)${NC} WinGet 安装"
+        fi
+        echo -e "  ${CYAN}${npm_num})${NC} npm 全局安装 (备选，需 Node.js 18+)"
+    else
+        echo -e "  ${CYAN}1)${NC} 原生安装 ${YELLOW}(需能访问 claude.ai)${NC}"
+        if [ "$IS_MAC" = true ]; then
+            echo -e "  ${CYAN}2)${NC} Homebrew 安装 ${YELLOW}(需能访问 claude.ai)${NC}"
+        fi
+        if [ "$IS_WINDOWS" = true ]; then
+            echo -e "  ${CYAN}2)${NC} WinGet 安装 ${YELLOW}(需能访问 claude.ai)${NC}"
+        fi
+        echo -e "  ${CYAN}${npm_num})${NC} npm 全局安装 ${GREEN}(推荐，从 npm 源安装)${NC}"
     fi
     echo -e "  ${CYAN}0)${NC} 返回"
     echo ""
-    input_param "请输入选项 [1]: " install_choice
-    install_choice=${install_choice:-1}
+    input_param "请输入选项 [${default_choice}]: " install_choice
+    install_choice=${install_choice:-$default_choice}
 
     case "$install_choice" in
         1)
-            msg_info "使用原生安装方式..."
-            if [ "$IS_WINDOWS" = true ]; then
-                msg_info "请在 PowerShell 中运行以下命令完成原生安装:"
-                echo -e "  ${YELLOW}irm https://claude.ai/install.ps1 | iex${NC}"
-                msg_info "或在 CMD 中运行:"
-                echo -e "  ${YELLOW}curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd${NC}"
-            else
-                curl -fsSL https://claude.ai/install.sh | bash
-                msg_ok "Claude Code 原生安装完成！"
-            fi
+            do_install_native
             ;;
         2)
-            if ! command -v node &> /dev/null; then
-                msg_error "未检测到 Node.js，请先执行「安装环境」。"
-                press_enter
-                return
+            if [ "$IS_MAC" = true ]; then
+                do_install_homebrew
+            elif [ "$IS_WINDOWS" = true ]; then
+                do_install_winget
+            elif [ "$npm_num" = 2 ]; then
+                do_install_npm
+            else
+                msg_error "无效选项。"
             fi
-            msg_info "使用 npm 全局安装 (已弃用方式)..."
-            npm install -g @anthropic-ai/claude-code
-            msg_ok "Claude Code npm 安装完成！"
             ;;
         3)
-            if [ "$IS_MAC" = true ]; then
-                msg_info "使用 Homebrew 安装..."
-                brew install --cask claude-code
-                msg_ok "Claude Code Homebrew 安装完成！"
-            elif [ "$IS_WINDOWS" = true ]; then
-                msg_info "使用 WinGet 安装..."
-                winget install Anthropic.ClaudeCode
-                msg_ok "Claude Code WinGet 安装完成！"
+            if [ "$npm_num" = 3 ]; then
+                do_install_npm
             else
                 msg_error "无效选项。"
             fi

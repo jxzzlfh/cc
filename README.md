@@ -1,7 +1,7 @@
 # Claude Code 一键安装与配置脚本
 
 交互式菜单工具，用于安装、配置、更新和卸载 [Claude Code](https://code.claude.com)。  
-参考官方文档: [高级设置](https://code.claude.com/docs/zh-CN/setup)
+参考官方文档: [快速开始](https://code.claude.com/docs/zh-CN/quickstart) | [高级设置](https://code.claude.com/docs/zh-CN/setup)
 
 <img width="578" height="674" alt="image" src="https://github.com/user-attachments/assets/1385d2fb-8f9c-4912-b81b-ae219cb67bc9" />
 
@@ -10,23 +10,42 @@
 | 菜单项 | 说明 |
 |--------|------|
 | **安装环境依赖** | 自动检测并安装 Node.js、Git，配置 npm 镜像源（中国大陆自动切换淘宝源） |
-| **一键安装** | 支持原生安装（推荐）、npm、Homebrew、WinGet 四种方式 |
+| **一键安装** | 智能检测网络环境，自动推荐最佳安装方式（见下方说明） |
 | **一键配置** | 交互式填写 API Token、代理地址、模型映射，自动生成 `settings.json` 并跳过官方验证 |
 | **一键更新** | 智能检测当前安装方式，调用对应更新命令升级到最新版 |
 | **一键卸载** | 智能检测安装方式，完整卸载程序并可选清理所有配置/会话残留 |
 | **查看当前配置** | 直接查看 `settings.json` 和验证标识文件内容 |
-| **npm 迁移原生** | 将已弃用的 npm 安装方式一键迁移到官方原生安装 |
+| **npm 迁移原生** | 将 npm 安装方式一键迁移到官方原生安装 |
 | **运行诊断** | 执行 `claude doctor` 进行环境自检 |
 | **设置快捷命令** | 安装 `cc` 命令到 `~/.local/bin/`，之后任意终端输入 `cc` 即可启动面板 |
+
+## 安装方式与优先级
+
+脚本提供四种安装方式，会根据网络环境自动检测并推荐最优方案：
+
+| 优先级 | 方式 | 适用平台 | 说明 |
+|--------|------|----------|------|
+| ⭐ 首选 | **原生安装 (Native Install)** | macOS / Linux / Windows | 官方推荐，支持后台自动更新 |
+| 🥈 次选 | **Homebrew** | macOS | 需手动更新 (`brew upgrade claude-code`) |
+| 🥈 次选 | **WinGet** | Windows | 需手动更新 (`winget upgrade Anthropic.ClaudeCode`) |
+| 🔄 备选 | **npm** | 全平台 | 当设备**无法访问 claude.ai** 时自动推荐 |
+
+### 智能检测逻辑
+
+安装时脚本会自动检测 `claude.ai` 的可达性：
+
+- **能访问 claude.ai** → 默认推荐**原生安装**，也可手动选择 Homebrew / WinGet
+- **无法访问 claude.ai** → 自动推荐 **npm 安装**（从 npm 源下载，无需访问 claude.ai）
+
+> 原生安装、Homebrew、WinGet 均需从 claude.ai 下载安装包。如果您的网络环境无法直接访问 claude.ai（如部分中国大陆网络），脚本会自动识别并推荐 npm 安装方式。
 
 ## 特性
 
 * **跨平台** — Linux (Ubuntu/CentOS/Debian/Alpine/Arch)、macOS、Windows (Git Bash)
 * **交互式菜单** — 进入脚本即显示菜单首页，实时展示环境状态
-* **智能检测** — 自动识别安装方式（原生/npm/Homebrew/WinGet），更新和卸载自动匹配
+* **智能检测** — 自动检测网络环境与安装方式（原生/npm/Homebrew/WinGet），安装/更新/卸载自动匹配
 * **彻底卸载** — 删除程序本体 + 可选清理 `~/.claude/`、`~/.claude.json`、`cc` 快捷命令、项目级 `.claude/`、`.mcp.json`
 * **快捷命令** — 一键安装 `cc` 到 `~/.local/bin/`，下次直接 `cc` 启动面板，支持更新/卸载
-* **多安装方式** — 原生安装（推荐，自动更新）、npm、Homebrew、WinGet 任选
 * **免密绕过** — 自动生成 `settings.json` 并写入 onboarding 标识，跳过官方账号验证
 * **配置纯净** — 所有配置写入 Claude 专属文件，不污染全局环境变量
 
@@ -94,5 +113,6 @@ cc
 ## 参考
 
 - [Claude Code 官方文档](https://code.claude.com)
+- [快速开始指南](https://code.claude.com/docs/zh-CN/quickstart)
 - [高级设置 (安装/更新/卸载)](https://code.claude.com/docs/zh-CN/setup)
-- [故障排除](https://code.claude.com/zh-CN/troubleshooting)
+- [故障排除](https://code.claude.com/docs/zh-CN/troubleshooting)
