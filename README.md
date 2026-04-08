@@ -61,10 +61,10 @@
 
 ```bash
 # curl
-bash <(curl -sL https://cang.zixi.run/claude.sh)
+bash <(curl -sL https://c.zixi.run/claude.sh)
 
 # wget
-bash <(wget -qO- https://cang.zixi.run/claude.sh)
+bash <(wget -qO- https://c.zixi.run/claude.sh)
 ```
 
 ### 国外网络（GitHub 原始地址）
