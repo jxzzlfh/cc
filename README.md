@@ -57,16 +57,24 @@
 
 ## 快速使用
 
-### 方案一：curl（推荐）
+### 国内网络（推荐，CDN 加速）
 
 ```bash
+# curl
 bash <(curl -sL https://cang.zixi.run/claude.sh)
+
+# wget
+bash <(wget -qO- https://cang.zixi.run/claude.sh)
 ```
 
-### 方案二：wget
+### 国外网络（GitHub 原始地址）
 
 ```bash
-bash <(wget -qO- https://cang.zixi.run/claude.sh)
+# curl
+bash <(curl -sL https://raw.githubusercontent.com/jxzzlfh/cc/main/claude.sh)
+
+# wget
+bash <(wget -qO- https://raw.githubusercontent.com/jxzzlfh/cc/main/claude.sh)
 ```
 
 运行后自动进入交互式菜单，按数字键选择功能。
